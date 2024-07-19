@@ -23,6 +23,6 @@ class NewChatMessage implements ShouldBroadcast
 
     public function broadcastOn()
     {
-        return new PresenceChannel('chat');
+        return new PrivateChannel('chat.' . $this->message->to_user_id);
     }
 }
