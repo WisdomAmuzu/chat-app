@@ -4,39 +4,41 @@ import { usePage, router } from "@inertiajs/react";
 import "./../echo";
 import AuthenticatedLayout from "@/Layouts/AuthenticatedLayout";
 import { Head } from "@inertiajs/react";
+import axios from "axios";
 
 export default function Chat({ auth }: any) {
     const { messages: initialMessages = [] } = usePage().props;
-const [messages, setMessages] = useState(Array.isArray(initialMessages) ? initialMessages : []);
+    const [messages, setMessages] = useState(
+        Array.isArray(initialMessages) ? initialMessages : []
+    );
     const [newMessage, setNewMessage] = useState("");
+    const [selectedUserId, setSelectedUserId] = useState(null);
 
     useEffect(() => {
-        window.Echo.join("chat").listen(
-            "NewChatMessage",
-            (e: { message: any }) => {
-                setMessages((prevMessages: any) => [
-                    ...prevMessages,
-                    e.message,
-                ]);
-            }
-        );
+        if (selectedUserId) {
+            fetchMessages();
+        }
+    }, [selectedUserId]);
 
-        return () => {
-            window.Echo.leave("chat");
-        };
-    }, []);
-
-    const sendMessage = (e: { preventDefault: () => void }) => {
-        e.preventDefault();
-        router.post(
-            "/chat/send",
-            { message: newMessage },
-            {
-                preserveState: true,
-                preserveScroll: true,
-            }
-        );
-        setNewMessage("");
+    const fetchMessages = async () => {
+        try {
+            const response = await axios.get(`/messages/${selectedUserId}`);
+            setMessages(response.data);
+        } catch (error) {
+            console.error("Error fetching messages:", error);
+        }
+    };
+    const sendMessage = async () => {
+        try {
+            const response = await axios.post("/send-message", {
+                to_user_id: selectedUserId,
+                content: newMessage,
+            });
+            setMessages([...messages, response.data]);
+            setNewMessage("");
+        } catch (error) {
+            console.error("Error sending message:", error);
+        }
     };
 
     return (
@@ -61,52 +63,20 @@ const [messages, setMessages] = useState(Array.isArray(initialMessages) ? initia
             </div>
             <div>
                 <div className="messages">
-                    {messages ? messages.map(
-                        (message: {
-                            id: React.Key | null | undefined;
-                            user: {
-                                name:
-                                    | string
-                                    | number
-                                    | boolean
-                                    | React.ReactElement<
-                                          any,
-                                          | string
-                                          | React.JSXElementConstructor<any>
-                                      >
-                                    | Iterable<React.ReactNode>
-                                    | React.ReactPortal
-                                    | null
-                                    | undefined;
-                            };
-                            content:
-                                | string
-                                | number
-                                | boolean
-                                | React.ReactElement<
-                                      any,
-                                      string | React.JSXElementConstructor<any>
-                                  >
-                                | Iterable<React.ReactNode>
-                                | React.ReactPortal
-                                | null
-                                | undefined;
-                        }) => (
-                            <div key={message.id}>
-                                <strong>{message.user.name}:</strong>{" "}
-                                {message.content}
-                            </div>
-                        )
-                    ) : <div>No Messages</div>}
+                    {messages ? (
+                        messages.map((message, index) => (
+                            <div key={index}>{message.content}</div>
+                        ))
+                    ) : (
+                        <div>No Messages</div>
+                    )}
                 </div>
-                <form onSubmit={sendMessage}>
-                    <input
-                        type="text"
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                    />
-                    <button type="submit">Send</button>
-                </form>
+                <input
+                    type="text"
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                />
+                <button onClick={sendMessage}>Send</button>
             </div>
         </AuthenticatedLayout>
     );

@@ -18,12 +18,25 @@ class ChatController extends Controller
     public function sendMessage(Request $request)
     {
         $message = Message::create([
-            'user_id' => Auth::id(),
-            'content' => $request->input('message')
+            'from_user_id' => Auth::id(),
+            // 'to_user_id' => $request->to_user_id, User message is to be sent to
+            'to_user_id' => Auth::id(),
+            'content' => $request->content
         ]);
 
         broadcast(new NewChatMessage($message))->toOthers();
 
         return back();
+    }
+
+    public function getMessages($userId)
+    {
+        $messages = Message::where(function($query) use ($userId) {
+            $query->where('from_user_id', Auth::id())->where('to_user_id', $userId);
+        })->orWhere(function($query) use ($userId) {
+            $query->where('from_user_id', $userId)->where('to_user_id', Auth::id());
+        })->orderBy('created_at', 'asc')->get();
+
+        return response()->json($messages);
     }
 }
